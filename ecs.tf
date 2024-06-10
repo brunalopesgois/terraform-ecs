@@ -2,50 +2,28 @@ resource "aws_ecs_cluster" "ecs_cluster" {
   name = "ecs-cluster"
 }
 
-resource "aws_ecs_capacity_provider" "ecs_capacity_provider" {
-  name = "test_capacity_provider"
-
-  auto_scaling_group_provider {
-    auto_scaling_group_arn = aws_autoscaling_group.ecs_asg.arn
-
-    managed_scaling {
-      maximum_scaling_step_size = 1000
-      minimum_scaling_step_size = 1
-      status                    = "ENABLED"
-      target_capacity           = 3
-    }
-  }
-}
-
-resource "aws_ecs_cluster_capacity_providers" "ecs_capacity_providers" {
-  cluster_name = aws_ecs_cluster.ecs_cluster.name
-
-  capacity_providers = [aws_ecs_capacity_provider.ecs_capacity_provider.name]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 100
-    capacity_provider = aws_ecs_capacity_provider.ecs_capacity_provider.name
-  }
+resource "aws_cloudwatch_log_group" "ecs_logs_test" {
+  name = "ecs-logs-test"
 }
 
 resource "aws_ecs_task_definition" "ecs_task_definition" {
   family             = "ecs-task"
   network_mode       = "awsvpc"
+  cpu                = 2048
+  memory             = 4096
   execution_role_arn = var.task_definition_role
-  cpu                = 256
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
   }
+  requires_compatibilities = ["FARGATE"]
   container_definitions = jsonencode([
     {
-      name      = "${var.image_name}"
       image     = "${var.image_uri}"
-      cpu       = 256
-      memory    = 512
+      name      = "${var.image_name}"
+      cpu       = 1024
+      memory    = 2048
       essential = true
-      environment : var.app_envs,
       portMappings = [
         {
           containerPort = 80
@@ -53,7 +31,22 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
           protocol      = "tcp"
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "${aws_cloudwatch_log_group.ecs_logs_test.name}"
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+      environment = [
+        {
+          name  = "PORT"
+          value = "80"
+        }
+      ]
     }
+
   ])
 }
 
@@ -61,7 +54,7 @@ resource "aws_ecs_service" "ecs_service" {
   name            = "ecs-service"
   cluster         = aws_ecs_cluster.ecs_cluster.id
   task_definition = aws_ecs_task_definition.ecs_task_definition.arn
-  desired_count   = 2
+  desired_count   = 1
 
   network_configuration {
     subnets         = [aws_subnet.ecs_subnet_az1.id, aws_subnet.ecs_subnet_az2.id]
@@ -77,16 +70,9 @@ resource "aws_ecs_service" "ecs_service" {
     redeployment = timestamp()
   }
 
-  capacity_provider_strategy {
-    capacity_provider = aws_ecs_capacity_provider.ecs_capacity_provider.name
-    weight            = 100
-  }
-
   load_balancer {
     target_group_arn = aws_lb_target_group.ecs_tg.arn
     container_name   = var.image_name
     container_port   = 80
   }
-
-  depends_on = [aws_autoscaling_group.ecs_asg]
 }
