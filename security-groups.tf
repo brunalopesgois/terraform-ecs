@@ -2,9 +2,9 @@
 
 # ALB Security Group: Edit to restrict access to the application
 resource "aws_security_group" "alb-sg" {
-  name        = "testapp-load-balancer-security-group"
+  name        = "union-audio-backend-alb-sg"
   description = "controls access to the ALB"
-  vpc_id      = aws_vpc.test-vpc.id
+  vpc_id      = aws_vpc.unionaudio-backend-vpc.id
 
   ingress {
     protocol    = "tcp"
@@ -23,9 +23,9 @@ resource "aws_security_group" "alb-sg" {
 
 # this security group for ecs - Traffic to the ECS cluster should only come from the ALB
 resource "aws_security_group" "ecs_sg" {
-  name        = "testapp-ecs-tasks-security-group"
+  name        = "union-audio-backend-ecs-tasks-sg"
   description = "allow inbound access from the ALB only"
-  vpc_id      = aws_vpc.test-vpc.id
+  vpc_id      = aws_vpc.unionaudio-backend-vpc.id
 
   ingress {
     protocol        = "tcp"

@@ -1,27 +1,16 @@
-variable "aws_region" {
-  default     = "eu-west-1"
-  description = "aws region where our resources going to create choose"
-  #replace the region as suits for your requirement
-}
-
 variable "az_count" {
   default     = "2"
   description = "number of availability zones in above region"
 }
 
 variable "ecs_task_execution_role" {
-  default     = "myECcsTaskExecutionRole"
+  default     = "ecsTaskExecutionRole"
   description = "ECS task execution role name"
 }
 
 variable "app_name" {
   default     = "hello-service"
   description = "docker image to run in this ECS cluster"
-}
-
-variable "app_image" {
-  default     = "286608068884.dkr.ecr.us-east-1.amazonaws.com/hello-service"
-  description = "uri of image in ECR"
 }
 
 variable "app_port" {
@@ -47,3 +36,36 @@ variable "fargate_memory" {
   default     = "4096"
   description = "Fargate instance memory to provision (in MiB) not MB"
 }
+
+variable "profile-tskd" {
+  description = "Task definition of profile-service"
+  default = [
+    {
+      name        = "hello-service"
+      image       = "286608068884.dkr.ecr.us-east-1.amazonaws.com/hello-service"
+      essential   = true
+      networkMode = "awsvpc"
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/profile-service"
+          awslogs-region        = "us-east-1"
+          awslogs-stream-prefix = "ecs"
+        }
+      }
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+      environment = [
+        {
+          name  = "PORT"
+          value = "80"
+        }
+      ]
+    }
+  ]
+}
+
